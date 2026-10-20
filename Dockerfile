@@ -28,9 +28,11 @@ RUN git config --global init.defaultBranch main \
     && git config --global user.name "Claude Code" \
     && git config --global user.email "claude@localhost"
 
-# Skip onboarding flow (theme + completed flag)
-RUN mkdir -p /home/claude/.claude \
-    && echo '{"theme":"dark","hasCompletedOnboarding":true}' > /home/claude/.claude/.claude.json
+# Keep all Claude Code state (incl. .claude.json) inside the mounted config dir
+ENV CLAUDE_CONFIG_DIR="/home/claude/.claude"
+RUN mkdir -p /home/claude/.claude
+
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 WORKDIR /home/claude/workspace
-ENTRYPOINT ["claude"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

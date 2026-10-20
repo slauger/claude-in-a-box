@@ -79,6 +79,7 @@ claude-sandbox/
     │   └── go/         # Go module cache (shared across instances)
     └── instances/
         └── <name>/
+            ├── claude/     # Claude Code state (CLAUDE_CONFIG_DIR, incl. .claude.json)
             └── workspace/  # Per-instance working directory
 ```
 
@@ -86,17 +87,22 @@ claude-sandbox/
 
 | Source (Host) | Target (Container) | Mode |
 |---------------|-------------------|------|
-| `~/.claude` | `/home/claude/.claude` | read-write |
+| `data/instances/<name>/claude` | `/home/claude/.claude` | read-write |
+| `~/.claude/CLAUDE.md` (if present) | `/home/claude/.claude/CLAUDE.md` | read-only |
 | `~/.ssh` | `/home/claude/.ssh` | read-only |
 | `~/.gitconfig` | `/home/claude/.gitconfig` | read-only |
 | `~/.config/gh` | `/home/claude/.config/gh` | read-only |
 | `data/shared/go` | `/home/claude/go` | read-write |
 | `data/instances/<name>/workspace` | `/home/claude/workspace` | read-write |
 
+### State persistence
+
+Claude Code keeps its global state in `~/.claude.json` — *outside* of `~/.claude`. The image sets `CLAUDE_CONFIG_DIR=/home/claude/.claude`, which moves that file into the mounted config directory, so onboarding, login (`.credentials.json`), history and project trust survive container restarts. On first start of a new instance the entrypoint seeds `.claude.json` to skip the onboarding flow.
+
+Each instance gets its own config directory because all instances use the same working directory path (`/home/claude/workspace`) — a shared directory would mix up session history and project memory. Reuse a `NAME=` to resume an instance.
+
 ## 🚧 Known Issues / TODO
 
-- ❌ **Interactive mode onboarding** — Claude Code shows the onboarding flow (color picker, login) in interactive mode even with valid `CLAUDE_CODE_OAUTH_TOKEN`. Non-interactive mode (`-p`) works fine. Upstream issue: [anthropics/claude-code#22066](https://github.com/anthropics/claude-code/issues/22066)
-- ❌ **OAuth persistence in Docker** — OAuth tokens from `claude login` don't persist between container restarts. Use `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` via `.env` instead.
 - ⚠️ **Image size** — Nix store makes the image large (~3-4 GB). Acceptable for a dev tool, but not minimal.
 - ⚠️ **nixpkgs channel pinning** — currently pulls `nixpkgs` latest, which may change between builds. Consider pinning to a specific commit for full reproducibility.
 - 💡 **Kubernetes manifests** — not yet implemented. Docker is sufficient for solo use; K8s manifests can be added later for multi-user/scheduled workloads.
